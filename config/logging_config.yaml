@@ -1,0 +1,42 @@
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  standard:
+    format: "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}"
+  detailed:
+    format: "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}"
+
+handlers:
+  console:
+    class: StreamHandler
+    level: INFO
+    formatter: standard
+    stream: ext://sys.stdout
+  
+  file:
+    class: FileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: "./logs/backtest.log"
+    mode: a
+    encoding: utf-8
+  
+  error_file:
+    class: FileHandler
+    level: ERROR
+    formatter: detailed
+    filename: "./logs/error.log"
+    mode: a
+    encoding: utf-8
+
+loggers:
+  btc_backtest_framework:
+    level: DEBUG
+    handlers: [console, file, error_file]
+    propagate: false
+
+root:
+  level: INFO
+  handlers: [console]
+

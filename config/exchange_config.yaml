@@ -1,0 +1,46 @@
+# 거래소 설정
+
+exchanges:
+  binance:
+    name: "Binance"
+    api_base: "https://api.binance.com"
+    rate_limit: 1200  # requests per minute
+    timeout: 30000  # milliseconds
+    
+    # API 키 (환경 변수에서 로드 권장)
+    api_key: "${BINANCE_API_KEY}"
+    api_secret: "${BINANCE_API_SECRET}"
+    
+    # 거래소 특정 설정
+    options:
+      defaultType: "spot"
+      adjustForTimeDifference: true
+    
+    # 심볼 매핑
+    symbols:
+      BTCUSDT:
+        base: "BTC"
+        quote: "USDT"
+        precision:
+          amount: 8
+          price: 2
+        limits:
+          amount:
+            min: 0.00001
+            max: 9000
+          price:
+            min: 0.01
+            max: 1000000
+          cost:
+            min: 10
+            max: 10000000
+
+# 기본 거래소
+default_exchange: "binance"
+
+# 데이터 소스 우선순위
+data_source_priority:
+  - "api"
+  - "database"
+  - "csv"
+

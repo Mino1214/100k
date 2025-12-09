@@ -1,0 +1,367 @@
+# BTCUSDT 백테스트 프레임워크 설정 파일
+
+# 데이터 설정
+data:
+  source: "database"  # csv | binance_api | database
+  symbol: "ETHUSDT"
+  timeframe: "1m"
+  
+  csv:
+    path: "./data/raw/BTCUSDT_1m.csv"
+    date_column: "timestamp"
+    date_format: "%Y-%m-%d %H:%M:%S"
+  
+  api:
+    exchange: "binance"
+    start_date: "2024-01-01"
+    end_date: "2024-12-31"
+    rate_limit: 1200  # requests per minute
+  
+  database:
+    connection_string: "mysql+pymysql://root:1107@180.230.8.65:3306/DEMO?charset=utf8mb4"
+    table_name: "ETHUSDT1m"
+    timestamp_column: "timestamp"
+  
+  validation:
+    check_missing: true
+    fill_method: "ffill"  # ffill | interpolate | drop
+    min_data_points: 525600  # 1년치 1분봉
+    
+  cache:
+    enabled: true
+    path: "./data/cache/"
+    expiry_hours: 24
+
+# 지표 설정
+indicators:
+  # 트렌드 지표
+  ema:
+    periods: [20, 40, 80]
+    source: "close"
+  
+  # 변동성 지표
+  bollinger:
+    period: 20
+    std_dev: 2.0
+    source: "close"
+  
+  atr:
+    period: 20
+    method: "wilder"  # wilder | sma | ema
+  
+  # 거래량 지표
+  volume_ma:
+    period: 20
+    type: "sma"
+  
+  # 확장 지표 (옵션)
+  rsi:
+    enabled: false
+    period: 14
+  
+  macd:
+    enabled: false
+    fast: 12
+    slow: 26
+    signal: 9
+
+# 레짐 탐지 설정
+regime:
+  method: "ema_alignment"  # ema_alignment | hmm | cluster
+  
+  ema_alignment:
+    bull:
+      condition: "ema20 > ema40 > ema80"
+      min_separation_pct: 0.1  # 최소 이격률 (노이즈 필터)
+    bear:
+      condition: "ema20 < ema40 < ema80"
+      min_separation_pct: 0.1
+    sideways:
+      condition: "otherwise"
+      atr_threshold: 0.5  # ATR이 낮으면 강한 횡보
+  
+  # 레짐 전환 필터
+  transition:
+    min_bars: 5  # 최소 유지 기간
+    confirmation_bars: 3  # 확인 기간
+
+# 전략 규칙
+strategy:
+  name: "EMA_BB_TurtleTrailing"
+  version: "2.0"
+  
+  entry:
+    # 스마트 진입 필터
+    filters:
+      min_confidence: 0.75  # 최소 신뢰도 75%
+      require_regime_confirmation: true
+      require_volume_confirmation: true
+      require_trend_alignment: true
+      confirmation_bars: 2  # 2바 확인
+    long:
+      regime: "bull"
+      conditions:
+        - type: "price_cross"
+          indicator: "bb_lower"
+          direction: "below_or_equal"
+        - type: "volume_filter"
+          min_ratio: 0.5
+          max_ratio: 3.0
+    
+    short:
+      regime: "bear"
+      conditions:
+        - type: "price_cross"
+          indicator: "bb_upper"
+          direction: "above_or_equal"
+        - type: "volume_filter"
+          min_ratio: 0.5
+          max_ratio: 3.0
+    
+    sideways:
+      action: "no_entry"
+  
+  exit:
+    stop_loss:
+      type: "atr_trailing"
+      atr_multiplier: 2.0
+      update_on: "favorable_move"  # always | favorable_move
+      
+    take_profit:
+      enabled: false
+    
+    regime_exit:
+      enabled: true
+      condition: "ema20_ema40_cross"  # EMA20과 EMA40 역전 시
+    
+    time_exit:
+      enabled: false
+      max_bars: 1440  # 24시간 후 강제 청산
+
+# 리스크 관리 (실전 거래용 강화)
+risk:
+  # 일일 리스크 제한
+  daily_loss_limit: 0.02  # 일일 최대 손실 2%
+  daily_trade_limit: 10  # 일일 최대 거래 수
+  
+  # 연속 손실 제한
+  max_consecutive_losses: 3  # 연속 3회 손실 시 거래 중단
+  
+  # 드로다운 제한
+  max_drawdown_limit: 0.10  # 최대 드로다운 10%
+  initial_capital: 100000
+  
+  # 포지션 보유 시간 제한
+  max_position_duration_hours: 24  # 최대 24시간
+  
+  # 변동성 필터
+  volatility_filter:
+    enabled: true
+    max_multiplier: 3.0  # 평균 변동성의 3배 이상 시 거래 안 함
+  # 포지션 사이징
+  position_sizing:
+    method: "fixed"  # fixed | risk_pct | kelly | volatility_adjusted
+    
+    fixed:
+      quantity: 1.0
+    
+    risk_pct:
+      account_risk_per_trade: 0.01  # 1%
+      stop_distance_atr: 2.0
+    
+    kelly:
+      fraction: 0.25  # Half Kelly
+      lookback_trades: 100
+    
+    volatility_adjusted:
+      base_size: 1.0
+      target_volatility: 0.02  # 2% 일간 변동성
+  
+  # 포트폴리오 레벨 리스크
+  portfolio:
+    max_drawdown_limit: 0.20  # 20% 도달 시 거래 중단
+    daily_loss_limit: 0.05    # 일일 손실 한도
+    max_open_positions: 1     # 동시 포지션 수
+    max_daily_trades: 50      # 일일 거래 횟수 제한
+
+# 실행 모델
+execution:
+  # 슬리피지 모델
+  slippage:
+    model: "fixed_pct"  # none | fixed_pct | volume_based | historical
+    fixed_pct: 0.0001   # 0.01%
+  
+  # 수수료
+  commission:
+    maker: 0.0002  # 0.02%
+    taker: 0.0004  # 0.04%
+    type: "percentage"  # percentage | fixed
+  
+  # 주문 타입
+  order:
+    entry: "market"   # market | limit
+    exit: "market"
+    limit_offset: 0.0001
+
+# 백테스트 엔진 설정
+backtest:
+  # 기본 설정
+  engine:
+    type: "event_driven"  # vectorized | event_driven
+    initial_capital: 100000
+    currency: "USDT"
+    use_smart_trading: true  # 스마트 거래 모듈 사용 (리스크 가디언, 스마트 진입/청산)
+  
+  # 기간 설정
+  period:
+    mode: "full"  # full | rolling | walk_forward
+    
+    full:
+      start: "2024-01-01"
+      end: "2024-12-31"
+    
+    rolling:
+      window_days: 30
+      step_days: 7
+    
+    walk_forward:
+      in_sample_days: 180
+      out_of_sample_days: 30
+      anchored: false
+  
+  # 워밍업 (지표 계산용)
+  warmup:
+    bars: 100
+
+# 분석 및 리포트
+analytics:
+  # 기본 성능 지표
+  metrics:
+    - total_return
+    - annualized_return
+    - sharpe_ratio
+    - sortino_ratio
+    - calmar_ratio
+    - max_drawdown
+    - max_drawdown_duration
+    - win_rate
+    - profit_factor
+    - avg_win
+    - avg_loss
+    - win_loss_ratio
+    - expectancy
+    - total_trades
+    - avg_trade_duration
+    - exposure_time
+  
+  # 레짐별 분석
+  regime_analysis:
+    enabled: true
+    metrics_per_regime: true
+    transition_analysis: true
+  
+  # 통계 검정
+  statistical_tests:
+    enabled: true
+    tests:
+      - t_test
+      - bootstrap
+      - monte_carlo
+      - autocorrelation
+  
+  # 리스크 분석
+  risk_analysis:
+    var_confidence: 0.95
+    cvar_confidence: 0.95
+    tail_ratio: true
+  
+  # 리포트 생성
+  report:
+    format: ["console", "html"]
+    output_path: "./reports/"
+    include_charts: true
+    include_trade_log: true
+
+# 시각화 설정
+visualization:
+  # 메인 차트
+  main_chart:
+    type: "interactive"  # static | interactive
+    library: "plotly"    # matplotlib | plotly
+    
+    components:
+      - candlestick
+      - ema_lines
+      - bollinger_bands
+      - entry_markers
+      - exit_markers
+      - stop_lines
+      - regime_background
+    
+    regime_colors:
+      bull: "rgba(0, 255, 0, 0.1)"
+      bear: "rgba(255, 0, 0, 0.1)"
+      sideways: "rgba(128, 128, 128, 0.1)"
+  
+  # 추가 차트
+  additional_charts:
+    - equity_curve
+    - drawdown_chart
+    - regime_distribution
+    - monthly_returns_heatmap
+    - trade_distribution
+    - rolling_sharpe
+
+# 최적화 설정
+optimization:
+  # 최적화 방법
+  method: "grid_search"  # grid_search | bayesian | genetic
+  
+  # 최적화 대상 파라미터
+  parameters:
+    ema_fast:
+      type: "range"
+      min: 10
+      max: 30
+      step: 5
+    ema_mid:
+      type: "range"
+      min: 30
+      max: 60
+      step: 10
+    ema_slow:
+      type: "range"
+      min: 60
+      max: 100
+      step: 10
+    # BB와 ATR은 선택적으로 최적화 (너무 많은 조합 방지)
+    # bb_period:
+    #   type: "choice"
+    #   values: [15, 20, 25]
+    # atr_multiplier:
+    #   type: "range"
+    #   min: 1.5
+    #   max: 3.0
+    #   step: 0.5
+    bb_period:
+      type: "choice"
+      values: [15, 20, 25]
+    atr_multiplier:
+      type: "range"
+      min: 1.5
+      max: 3.0
+      step: 0.5
+  
+  # 목적 함수
+  objective:
+    primary: "sharpe_ratio"
+    secondary: "profit_factor"
+    constraints:
+      min_trades: 50
+      max_drawdown: 0.25
+  
+  # 병렬 처리
+  parallel:
+    enabled: true
+    n_jobs: -1  # 모든 코어 사용
+

@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  backtest:
+    build: .
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./reports:/app/reports
+      - ./logs:/app/logs
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python main.py backtest --config config/settings.yaml
+
+  dashboard:
+    build: .
+    ports:
+      - "8050:8050"
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./reports:/app/reports
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python main.py dashboard --port 8050
+
