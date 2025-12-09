@@ -74,8 +74,10 @@ class WebhookTrader:
             if self.live_trader:
                 # 봉 마감 이벤트 처리
                 self.live_trader._on_bar_close(normalized_bar)
+                logger.info(f"웹훅 봉 데이터를 LiveTrader에 전달 완료")
             else:
-                logger.warning("실시간 거래자가 설정되지 않음")
+                logger.warning("실시간 거래자가 설정되지 않음 - 웹훅만 수신하고 거래는 실행되지 않습니다")
+                logger.warning("거래를 실행하려면 LiveTrader를 함께 실행해야 합니다")
             
             # 최근 봉 업데이트
             self.last_bar = normalized_bar
