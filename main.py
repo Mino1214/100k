@@ -623,8 +623,53 @@ def run_dashboard(
     
     # 웹훅 거래자 설정 (활성화된 경우)
     if enable_webhook:
+        # LiveTrader가 없고 자동 시작 옵션이 있으면 생성
+        if not live_trader and auto_start_live_trader:
+            logger.info("=" * 60)
+            logger.info("🚀 LiveTrader 자동 시작 중...")
+            logger.info("=" * 60)
+            
+            # 데이터베이스 로거
+            db_config = config.get("data", {}).get("database", {})
+            db_logger = None
+            if db_config.get("connection_string"):
+                db_logger = DatabaseLogger(
+                    connection_string=db_config.get("connection_string"),
+                    project_prefix="myno"
+                )
+            
+            # LiveTrader 생성 (웹훅 모드)
+            live_trader = LiveTrader(
+                config,
+                db_logger,
+                optimization_window_days=30,
+                reoptimize_frequency="on_bar_close",  # 봉 마감 시마다 재최적화
+            )
+            
+            # 웹훅 모드 표시
+            live_trader._webhook_mode = True
+            
+            # LiveTrader 시작 (백그라운드 스레드)
+            import threading
+            def start_live_trader():
+                try:
+                    live_trader.start_trading(
+                        auto_optimize=True,
+                        paper_trading=True,
+                    )
+                except Exception as e:
+                    logger.error(f"LiveTrader 실행 실패: {e}")
+            
+            trader_thread = threading.Thread(target=start_live_trader, daemon=True)
+            trader_thread.start()
+            logger.info("✅ LiveTrader 백그라운드 실행 시작됨")
+            logger.info("✅ 가상매매 모드 (Paper Trading)")
+            logger.info("✅ 자동 최적화 활성화")
+        
+        # 웹훅 거래자 생성 및 연결
         webhook_trader = WebhookTrader(config, live_trader=live_trader)
         set_webhook_trader(webhook_trader)
+        
         logger.info("=" * 60)
         logger.info("TradingView 웹훅 활성화됨")
         logger.info(f"웹훅 URL: http://{host}:{port}/webhook/tradingview")
@@ -633,8 +678,7 @@ def run_dashboard(
         else:
             logger.warning("⚠️  LiveTrader가 없습니다")
             logger.warning("   웹훅은 수신하지만 거래는 제한적으로 실행됩니다")
-            logger.warning("   완전한 자동 거래를 원하면 LiveTrader를 별도로 실행하세요:")
-            logger.warning("   python3 main.py live --auto-optimize --paper-trading")
+            logger.warning("   완전한 자동 거래를 원하면 --auto-live-trader 옵션을 사용하세요")
         logger.info("=" * 60)
     
     logger.info(f"웹 대시보드 시작: http://{host}:{port}")
