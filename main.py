@@ -77,6 +77,7 @@ def main():
     dashboard_parser.add_argument("--config", type=str, default="config/settings.yaml", help="설정 파일 경로")
     dashboard_parser.add_argument("--port", type=int, default=5000, help="포트 번호")
     dashboard_parser.add_argument("--host", type=str, default="0.0.0.0", help="호스트 주소")
+    dashboard_parser.add_argument("--webhook", action="store_true", help="TradingView 웹훅 활성화")
     
     # 실시간 거래 명령어
     live_parser = subparsers.add_parser("live", help="실시간 거래 시작")
@@ -132,7 +133,7 @@ def main():
     elif args.command == "report":
         run_report(config, args.format, args.output)
     elif args.command == "dashboard":
-        run_dashboard(config, args.port, args.host)
+        run_dashboard(config, args.port, args.host, enable_webhook=args.webhook)
     elif args.command == "live":
         run_live_trading(
             config,
@@ -600,9 +601,28 @@ def run_report(config: dict, formats: list, output_dir: str):
     logger.info("리포트 생성 완료")
 
 
-def run_dashboard(config: dict, port: int, host: str = "0.0.0.0"):
+def run_dashboard(
+    config: dict,
+    port: int,
+    host: str = "0.0.0.0",
+    enable_webhook: bool = False,
+    live_trader: Optional[Any] = None,
+):
     """대시보드 실행"""
+    from web.server import create_app, set_webhook_trader
+    from trading.webhook_trader import WebhookTrader
+    
+    app = create_app()
+    
+    # 웹훅 거래자 설정 (활성화된 경우)
+    if enable_webhook:
+        webhook_trader = WebhookTrader(config, live_trader=live_trader)
+        set_webhook_trader(webhook_trader)
+        logger.info("TradingView 웹훅 활성화됨: /webhook/tradingview")
+    
     logger.info(f"웹 대시보드 시작: http://{host}:{port}")
+    if enable_webhook:
+        logger.info("웹훅 엔드포인트: http://{host}:{port}/webhook/tradingview")
     run_web_server(host=host, port=port, debug=False)
 
 

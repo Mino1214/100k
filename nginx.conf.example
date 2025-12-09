@@ -1,0 +1,93 @@
+# Nginx 설정 예시 - TradingView 웹훅용
+
+server {
+    listen 80;
+    server_name your-domain.com;  # 또는 서버 IP
+    
+    # 로그 설정
+    access_log /var/log/nginx/tradingview_webhook_access.log;
+    error_log /var/log/nginx/tradingview_webhook_error.log;
+    
+    # 클라이언트 최대 바디 크기 (웹훅 데이터용)
+    client_max_body_size 1M;
+    
+    # 타임아웃 설정
+    proxy_connect_timeout 60s;
+    proxy_send_timeout 60s;
+    proxy_read_timeout 60s;
+    
+    # TradingView 웹훅 엔드포인트
+    location /webhook/tradingview {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # CORS 헤더 (필요시)
+        add_header Access-Control-Allow-Origin *;
+        add_header Access-Control-Allow-Methods "POST, GET, OPTIONS";
+        add_header Access-Control-Allow-Headers "Content-Type, Authorization";
+        
+        # OPTIONS 요청 처리
+        if ($request_method = 'OPTIONS') {
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods "POST, GET, OPTIONS";
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization";
+            add_header Content-Length 0;
+            add_header Content-Type text/plain;
+            return 204;
+        }
+    }
+    
+    # 대시보드 및 API
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # WebSocket 지원 (필요시)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+    
+    # API 엔드포인트
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# HTTPS 설정 (권장)
+# Let's Encrypt SSL 인증서 사용 예시
+# server {
+#     listen 443 ssl http2;
+#     server_name your-domain.com;
+#     
+#     ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+#     
+#     ssl_protocols TLSv1.2 TLSv1.3;
+#     ssl_ciphers HIGH:!aNULL:!MD5;
+#     ssl_prefer_server_ciphers on;
+#     
+#     # 나머지 설정은 위와 동일
+#     location /webhook/tradingview {
+#         proxy_pass http://127.0.0.1:5000;
+#         # ... (위와 동일)
+#     }
+# }
+# 
+# # HTTP to HTTPS 리다이렉트
+# server {
+#     listen 80;
+#     server_name your-domain.com;
+#     return 301 https://$server_name$request_uri;
+# }
+

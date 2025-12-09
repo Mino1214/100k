@@ -14,7 +14,23 @@ CORS(app)  # CORS 활성화 (필요시)
 
 # API 블루프린트는 나중에 등록 (순환 import 방지)
 from .api import api_bp
+from .tradingview_webhook import tradingview_bp, set_tradingview_callback
+
 app.register_blueprint(api_bp, url_prefix="/api")
+app.register_blueprint(tradingview_bp, url_prefix="")
+
+# 웹훅 거래자 (전역)
+_webhook_trader = None
+
+
+def set_webhook_trader(trader):
+    """웹훅 거래자 설정"""
+    global _webhook_trader
+    _webhook_trader = trader
+    if trader:
+        # TradingView 웹훅 콜백 설정
+        set_tradingview_callback(trader.process_webhook_bar)
+        logger.info("웹훅 거래자 설정 완료")
 
 
 @app.route("/")
