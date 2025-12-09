@@ -135,19 +135,40 @@ class LiveTrader:
         if auto_optimize:
             self._run_optimization()
         
-        # 실시간 데이터 수신 시작
-        self.realtime_feed.start()
+        # 실시간 데이터 수신 시작 (웹훅 모드에서는 선택적)
+        # 웹훅을 사용하는 경우 RealtimeFeed는 사용하지 않음
+        use_realtime_feed = not hasattr(self, '_webhook_mode') or not getattr(self, '_webhook_mode', False)
         
-        # 봉 마감 이벤트 핸들러 등록
-        self.realtime_feed.on_bar_close = self._on_bar_close
-        
-        # 메인 루프 시작
-        try:
-            self._trading_loop()
-        except KeyboardInterrupt:
-            logger.info("거래 중지 요청됨")
-        finally:
-            self.stop()
+        if use_realtime_feed:
+            self.realtime_feed.start()
+            # 봉 마감 이벤트 핸들러 등록
+            self.realtime_feed.on_bar_close = self._on_bar_close
+            
+            # 메인 루프 시작
+            try:
+                self._trading_loop()
+            except KeyboardInterrupt:
+                logger.info("거래 중지 요청됨")
+            finally:
+                self.stop()
+        else:
+            # 웹훅 모드: RealtimeFeed 없이 웹훅으로만 데이터 수신
+            logger.info("웹훅 모드 - RealtimeFeed 없이 웹훅으로만 데이터 수신")
+            logger.info("웹훅이 들어오면 자동으로 거래 로직이 실행됩니다")
+            
+            # 초기 최적화만 실행
+            if auto_optimize:
+                self._run_optimization()
+            
+            # 웹훅 모드에서는 메인 루프를 실행하지 않고 대기
+            # 웹훅이 들어오면 _on_bar_close가 호출됨
+            try:
+                while not self.stop_event.is_set():
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                logger.info("거래 중지 요청됨")
+            finally:
+                self.stop()
     
     def _trading_loop(self):
         """거래 메인 루프"""

@@ -78,6 +78,7 @@ def main():
     dashboard_parser.add_argument("--port", type=int, default=5000, help="포트 번호")
     dashboard_parser.add_argument("--host", type=str, default="0.0.0.0", help="호스트 주소")
     dashboard_parser.add_argument("--webhook", action="store_true", help="TradingView 웹훅 활성화")
+    dashboard_parser.add_argument("--auto-live-trader", action="store_true", help="웹훅 활성화 시 LiveTrader 자동 시작")
     
     # 실시간 거래 명령어
     live_parser = subparsers.add_parser("live", help="실시간 거래 시작")
@@ -133,7 +134,13 @@ def main():
     elif args.command == "report":
         run_report(config, args.format, args.output)
     elif args.command == "dashboard":
-        run_dashboard(config, args.port, args.host, enable_webhook=args.webhook)
+        run_dashboard(
+            config,
+            args.port,
+            args.host,
+            enable_webhook=args.webhook,
+            auto_start_live_trader=args.auto_live_trader,
+        )
     elif args.command == "live":
         run_live_trading(
             config,
