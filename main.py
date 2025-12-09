@@ -618,7 +618,17 @@ def run_dashboard(
     if enable_webhook:
         webhook_trader = WebhookTrader(config, live_trader=live_trader)
         set_webhook_trader(webhook_trader)
-        logger.info("TradingView 웹훅 활성화됨: /webhook/tradingview")
+        logger.info("=" * 60)
+        logger.info("TradingView 웹훅 활성화됨")
+        logger.info(f"웹훅 URL: http://{host}:{port}/webhook/tradingview")
+        if live_trader:
+            logger.info("✅ LiveTrader와 연결됨 - 웹훅 수신 시 자동 거래 실행")
+        else:
+            logger.warning("⚠️  LiveTrader가 없습니다")
+            logger.warning("   웹훅은 수신하지만 거래는 제한적으로 실행됩니다")
+            logger.warning("   완전한 자동 거래를 원하면 LiveTrader를 별도로 실행하세요:")
+            logger.warning("   python3 main.py live --auto-optimize --paper-trading")
+        logger.info("=" * 60)
     
     logger.info(f"웹 대시보드 시작: http://{host}:{port}")
     if enable_webhook:
