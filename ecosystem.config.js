@@ -3,10 +3,10 @@ module.exports = {
   apps: [
     {
       name: 'tradingview-webhook',
-      script: 'python3',
-      args: 'main.py dashboard --host 0.0.0.0 --port 5000 --webhook',
+      script: 'main.py',
+      args: 'dashboard --host 0.0.0.0 --port 5000 --webhook',
       cwd: process.env.HOME + '/100k',  // ~/100k 경로 자동 설정
-      interpreter: 'python3',
+      interpreter: '/usr/bin/python3',  // Python 전체 경로
       instances: 1,
       exec_mode: 'fork',
       watch: false,
@@ -27,10 +27,10 @@ module.exports = {
     // 실시간 거래자 (선택적)
     {
       name: 'live-trader',
-      script: 'python3',
-      args: 'main.py live --auto-optimize --paper-trading',
+      script: 'main.py',
+      args: 'live --auto-optimize --paper-trading',
       cwd: process.env.HOME + '/100k',
-      interpreter: 'python3',
+      interpreter: '/usr/bin/python3',  // Python 전체 경로
       instances: 1,
       exec_mode: 'fork',
       watch: false,
