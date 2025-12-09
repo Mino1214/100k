@@ -614,6 +614,7 @@ def run_dashboard(
     host: str = "0.0.0.0",
     enable_webhook: bool = False,
     live_trader: Optional[Any] = None,
+    auto_start_live_trader: bool = False,
 ):
     """대시보드 실행"""
     from web.server import create_app, set_webhook_trader
