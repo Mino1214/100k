@@ -120,20 +120,49 @@ def _parse_tradingview_data(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             exchange = data.get("exchange", "BINANCE")
             timeframe = data.get("timeframe") or data.get("interval", "1m")
             
+            # 템플릿 변수가 치환되지 않은 경우 처리
+            if symbol.startswith("{{") and symbol.endswith("}}"):
+                logger.warning(f"템플릿 변수가 치환되지 않음: {symbol}. Alert 메시지 설정을 확인하세요.")
+                symbol = "UNKNOWN"  # 기본값 사용
+            if exchange.startswith("{{") and exchange.endswith("}}"):
+                logger.warning(f"템플릿 변수가 치환되지 않음: {exchange}. Alert 메시지 설정을 확인하세요.")
+                exchange = "BINANCE"  # 기본값 사용
+            if timeframe.startswith("{{") and timeframe.endswith("}}"):
+                logger.warning(f"템플릿 변수가 치환되지 않음: {timeframe}. Alert 메시지 설정을 확인하세요.")
+                timeframe = "1m"  # 기본값 사용
+            
             # 타임스탬프 파싱
             timestamp_str = data.get("timestamp") or data.get("time")
             if isinstance(timestamp_str, str):
-                # Unix timestamp 문자열
-                try:
-                    timestamp = datetime.fromtimestamp(float(timestamp_str))
-                except:
-                    # ISO 형식
+                # 템플릿 변수 체크
+                if timestamp_str.startswith("{{") and timestamp_str.endswith("}}"):
+                    logger.warning(f"템플릿 변수가 치환되지 않음: {timestamp_str}. Alert 메시지 설정을 확인하세요.")
+                    timestamp = datetime.now()
+                else:
+                    # Unix timestamp 문자열 (초, 밀리초, 또는 마이크로초)
                     try:
-                        timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                        ts_value = float(timestamp_str)
+                        # 마이크로초인지 확인 (16자리 이상이면 마이크로초)
+                        if ts_value > 1e15:  # 마이크로초
+                            timestamp = datetime.fromtimestamp(ts_value / 1000000)
+                        elif ts_value > 1e12:  # 밀리초
+                            timestamp = datetime.fromtimestamp(ts_value / 1000)
+                        else:  # 초 단위
+                            timestamp = datetime.fromtimestamp(ts_value)
                     except:
-                        timestamp = datetime.now()
+                        # ISO 형식
+                        try:
+                            timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                        except:
+                            timestamp = datetime.now()
             elif isinstance(timestamp_str, (int, float)):
-                timestamp = datetime.fromtimestamp(timestamp_str)
+                # 마이크로초인지 확인 (16자리 이상이면 마이크로초)
+                if timestamp_str > 1e15:  # 마이크로초
+                    timestamp = datetime.fromtimestamp(timestamp_str / 1000000)
+                elif timestamp_str > 1e12:  # 밀리초
+                    timestamp = datetime.fromtimestamp(timestamp_str / 1000)
+                else:  # 초 단위
+                    timestamp = datetime.fromtimestamp(timestamp_str)
             else:
                 timestamp = datetime.now()
             

@@ -1,0 +1,41 @@
+//@version=5
+// TradingView Webhook Indicator - 봉 마감 시마다 웹훅 전송
+// 매 봉 마감 시 서버로 OHLCV 데이터 전송
+
+indicator("Webhook Alert - Bar Close", overlay=false)
+
+// ============================================
+// 설정
+// ============================================
+
+// 봉 마감 감지
+bar_closed = barstate.isconfirmed
+
+// ============================================
+// 웹훅 전송 (매 봉 마감마다)
+// ============================================
+
+if bar_closed
+    // 웹훅 메시지 생성 (JSON 형식)
+    // timestamp는 밀리초 단위로 전송
+    timestamp_ms = time * 1000
+    
+    // 심볼 정보 가져오기
+    ticker_name = syminfo.ticker
+    exchange_name = syminfo.prefix
+    
+    // JSON 메시지 생성
+    alert_message = '{"symbol": "' + ticker_name + '", "exchange": "' + exchange_name + '", "timeframe": "' + timeframe.period + '", "timestamp": "' + str.tostring(timestamp_ms) + '", "open": ' + str.tostring(open) + ', "high": ' + str.tostring(high) + ', "low": ' + str.tostring(low) + ', "close": ' + str.tostring(close) + ', "volume": ' + str.tostring(volume) + '}'
+    
+    // Alert 전송 (봉당 한 번만)
+    alert(alert_message, alert.freq_once_per_bar)
+
+// ============================================
+// 차트 표시 (선택적)
+// ============================================
+
+// 봉 마감 표시
+plotshape(bar_closed, style=shape.circle, location=location.bottom, color=color.blue, size=size.tiny, title="Bar Closed")
+
+// 현재 가격 표시
+plot(close, "Close", color=color.white, linewidth=1)

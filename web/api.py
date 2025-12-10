@@ -230,3 +230,56 @@ def health_check():
         "timestamp": datetime.now().isoformat(),
     })
 
+
+@api_bp.route("/live-trading/status")
+def get_live_trading_status():
+    """실시간 거래 상태 조회"""
+    try:
+        from web.server import get_webhook_trader
+    except ImportError:
+        # 순환 import 방지
+        import sys
+        from web import server
+        get_webhook_trader = server.get_webhook_trader
+    
+    webhook_trader = get_webhook_trader()
+    if not webhook_trader:
+        return jsonify({
+            "status": "not_configured",
+            "message": "웹훅 거래자가 설정되지 않았습니다",
+        })
+    
+    live_trader = webhook_trader.live_trader
+    if not live_trader:
+        return jsonify({
+            "status": "no_live_trader",
+            "message": "LiveTrader가 실행되지 않았습니다",
+            "webhook_enabled": True,
+            "last_bar": webhook_trader.get_last_bar(),
+        })
+    
+    # LiveTrader 상태 가져오기
+    trader_status = live_trader.get_status()
+    
+    # 현재 포지션 정보
+    current_position = None
+    if hasattr(live_trader, 'current_position') and live_trader.current_position:
+        pos = live_trader.current_position
+        current_position = {
+            "direction": pos.direction if hasattr(pos, 'direction') else None,
+            "entry_price": pos.entry_price if hasattr(pos, 'entry_price') else None,
+            "quantity": pos.quantity if hasattr(pos, 'quantity') else None,
+            "entry_time": pos.entry_time.isoformat() if hasattr(pos, 'entry_time') and pos.entry_time else None,
+        }
+    
+    return jsonify({
+        "status": "active",
+        "is_trading": trader_status.get("is_trading", False),
+        "current_params": trader_status.get("current_params", {}),
+        "last_optimization": trader_status.get("last_optimization"),
+        "optimization_count": trader_status.get("optimization_count", 0),
+        "current_position": current_position,
+        "last_bar": webhook_trader.get_last_bar(),
+        "webhook_enabled": True,
+    })
+

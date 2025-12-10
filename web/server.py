@@ -33,6 +33,11 @@ def set_webhook_trader(trader):
         logger.info("웹훅 거래자 설정 완료")
 
 
+def get_webhook_trader():
+    """웹훅 거래자 가져오기"""
+    return _webhook_trader
+
+
 @app.route("/")
 def index():
     """메인 대시보드 페이지"""
